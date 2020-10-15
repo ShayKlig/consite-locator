@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ConSite Locator</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+	  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css">
+	  <link href="css/bootstrap.min.css" rel="stylesheet">
+	  <link href="css/mdb.min.css" rel="stylesheet">
+	  <link href="css/style.css" rel="stylesheet">
+	  <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <style>
+      #map {
+  	    height: 70%;
+    	width: 70%;
+    	position: fixed;
+    	top: 15%;
+	    left: 15%;
+      }
+      html, body {
+        height: 100%;
+        background-image: url('https://colemangrouptt.com/wp-content/uploads/2016/01/Buildings-Construction-Wallpaper-10.jpg');
+        background-repeat: no-repeat;
+    	background-size: 100%;
+      }
+    .navbar-inverse{
+	background-color:rgb(4, 1, 24);
+     border-color:rgb(4, 1, 24);
+    margin-bottom: 0;
+	}	
+    .title {
+		position: absolute;
+		left: 40%;	
+    }
+    .selectCity {
+		position: absolute;
+		left: 45%;	
+    }
+
+    .selectCityInput {
+    	margin-top: 85px;
+    	width: 90px;
+    	direction: rtl;
+    }
+    #pac-container {
+ 	 	padding-bottom: 12px;
+  		margin-right: 12px;
+	}
+	#modalAddLocation {
+		width: 200px;
+		margin-top: 250px;
+		position: fixed;
+		margin-left: 15px;
+	}
+	#disconnect {
+		margin-top: 10px;
+	}
+    </style>
+  </head>
+  <body>
+<script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@0.18.0/dist/axios.min.js"></script>
+      
+		<nav class="navbar navbar-inverse">
+			<div class="container">
+				<div class="navbar-header">
+					 <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-nav-demo" aria-expanded="false">
+				<span class="sr-only">Toggle navigation</span>
+				<span class="icon-bar"></span>
+				<span class="icon-bar"></span>
+				<span class="icon-bar"></span>
+			  </button>
+					<a href="#" class="navbar-brand"><i class="fa fa-camera-retro"></i> Consite Locator</a>
+				</div>
+				<div class="collapse navbar-collapse" id="bs-nav-demo">
+					<ul class="nav navbar-nav navbar-right">
+						<li id='register'><a href="" class="btn btn-dark btn-rounded mb-4" data-toggle="modal" data-target="#modalRegisterForm">הירשם</a></li>
+						<li id='login'><a href="" class="btn btn-dark btn-rounded mb-4" data-toggle="modal" data-target="#modalLoginForm">התחבר</a></li>
+						<li id='approveUsers'><a href="" class="btn btn-dark btn-rounded mb-4" data-toggle="modal" data-target="#modalApproveUsers">אשר משתמשים</a></li>
+						<li id='disconnect'><button class="btn btn-dark btn-rounded mb-4" onclick="disconnect()">התנתק</button></li>
+					</ul>
+				</div>
+			</div>
+		</nav>
+		<h1 class="title">Consite Locator</h1>
+		<div class="selectCity">	
+			<select id="selectCityInput" class="selectCityInput" onchange="selectOnChange()">
+				<option value="" disabled selected>בחר עיר</option>
+				<option value="רמת גן">רמת גן</option>
+				<option value="ראשון לציון">ראשון לציון</option>
+			</select>
+		</div>
+		<div id="modalAddLocation">
+		<div id="pac-container">
+              <input class="form-control" id="pac-input" type="text" placeholder="Enter a location" />
+          </div>
+          <div class="md-form mb-3">
+          <i class="fas fa-user prefix grey-text"></i>
+          <input type="date" id="startDate" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-name">תאריך התחלה</label>
+        </div>
+        <div class="md-form mb-4">
+          <i class="fas fa-envelope prefix grey-text"></i>
+          <input type="date" id="endDate" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-email">תאריך סיום</label>
+        </div>
+        <div class="modal-footer d-flex justify-content-center">
+        <button id="addConsite" class="btn btn-deep-orange" onclick="addConsite()">הוסף אתר בנייה</button>
+      </div>
+      </div>
+      </div>
+          <div id="infowindow-content">
+	      <img src="" width="16" height="16" id="place-icon" />
+	      <span id="place-name" class="title"></span><br />
+	      <span id="place-address"></span>
+	    </div>
+		<div id="map"></div>
+    <script>
+	   var map = null;
+       var distance = 5000;
+	   var markers = [];
+	   var image = null;
+	   	var login = document.getElementById('login');
+	   	var register = document.getElementById('register');
+	   	var disconnect = document.getElementById('disconnect');
+	   	var modalAddLocation = document.getElementById('modalAddLocation');
+	   	var approveUsers = document.getElementById('approveUsers');
+	   	var cityInput = document.getElementById('selectCityInput');
+   		var userLoggedIn = localStorage.getItem("isLoggedIn");
+   		var isAdmin = localStorage.getItem('isAdmin') === "true";
+   		var isEditor = localStorage.getItem('isEditor') === "true";
+	   if (userLoggedIn === "true") {
+	   	login.style.display = "none";
+	   	register.style.display = "none";
+	   	disconnect.style.display = "block";
+	   	if (isAdmin) {
+		   	modalAddLocation.style.display = "block";
+		   	approveUsers.style.display = "block";
+	   	} else if ( isEditor ) {
+	   		modalAddLocation.style.display = "none";
+	   	}
+	   } else {
+	   	login.style.display = "block";
+	   	register.style.display = "block";
+	   	disconnect.style.display = "none";
+	   	modalAddLocation.style.display = "none";
+	   	approveUsers.style.display = "none";   	
+	   }
+
+	   function selectOnChange() {
+		map.setZoom(13);	
+	   	switch (cityInput.value){
+	   		case "רמת גן":
+	   			map.setCenter({lat: 32.0717951, lng: 34.861323}); 
+	   			getConstructionSiteByCity("רמת גן");
+				resetMarkersForLocation(32.0717951, 34.861323);
+	   			break;
+   			case "ראשון לציון":
+	   			map.setCenter({lat: 31.9751068, lng: 34.848427}); 
+				resetMarkersForLocation(31.9751068, 34.848427);
+	   			getConstructionSiteByCity("ראשון לציון");
+	   			break;
+	   	}
+
+	   }
+		
+	   function initMap() {
+			var mapPlaceholder = document.getElementById('map');
+			 map = new google.maps.Map(mapPlaceholder, {
+			  center: {lat: 31.771959, lng: 35.217018},
+			  zoom: 11
+			});
+			 const input = document.getElementById("pac-input");
+			const autocomplete = new google.maps.places.Autocomplete(input);
+		    autocomplete.bindTo("bounds", map);
+		    autocomplete.setOptions({ strictBounds: false });
+		    autocomplete.setFields([
+		          "address_components",
+		          "geometry",
+		          "icon",
+		          "name",
+		        ]);
+		    infowindow = new google.maps.InfoWindow();
+			infowindowContent = document.getElementById("infowindow-content");
+			infowindow.setContent(infowindowContent);
+			marker = new google.maps.Marker({
+			    map,
+			    anchorPoint: new google.maps.Point(0, -29),
+			  });
+		    autocomplete.addListener("place_changed", () => {
+		      infowindow.close();
+			    marker.setVisible(false);
+			    const place = autocomplete.getPlace();
+
+			    if (!place.geometry) {
+			      window.alert("No details available for input: '" + place.name + "'");
+			      return;
+			    }
+
+			    if (place.geometry.viewport) {
+			      map.fitBounds(place.geometry.viewport);
+			    } else {
+			      map.setCenter(place.geometry.location);
+			      map.setZoom(17);
+			    }
+			    localStorage.setItem("inputLocationLat", place.geometry.location.lat())
+			    localStorage.setItem("inputLocationLng", place.geometry.location.lng())
+			    marker.setPosition(place.geometry.location);
+			    marker.setVisible(true);
+			    let address = "";
+
+			    if (place.address_components) {
+			      address = [
+			        (place.address_components[0] &&
+			          place.address_components[0].short_name) ||
+			          "",
+			        (place.address_components[1] &&
+			          place.address_components[1].short_name) ||
+			          "",
+			        (place.address_components[2] &&
+			          place.address_components[2].short_name) ||
+			          "",
+			      ].join(" ");
+			    }
+			    infowindowContent.children["place-icon"].src = place.icon;
+			    infowindowContent.children["place-name"].textContent = place.name;
+			    infowindowContent.children["place-address"].textContent = address;
+			    infowindow.open(map, marker);
+			  });
+
+		} 
+
+
+	   
+
+		function resetMarkersForLocation(lat, lon) {
+			for (var i = 0; i < markers.length; i++) {
+			  markers[i].setMap(null);
+			}
+			markers = [];	
+		}
+
+		function getConstructionSiteByCity(cityName)
+        {
+          try{
+            fetch("https://consite-locator-a441e.firebaseio.com/locations.json")
+              .then(response => {
+                if(!response.ok)
+                  throw new Error("Not 2xx response");
+                if(response != null)
+                  return response.json();
+                })
+              .then(pointList => 
+              {
+                for(const elem of pointList){
+                	if (!elem || !elem.project.name.includes(cityName)) {
+                		continue;
+                	}
+                  let cords = {lat: elem.location.lat,lng: elem.location.lng};
+				  var contentString = '<div id="content">'+
+			      '<h1 id="firstHeading" class="firstHeading">'+elem.project.name+'</h1>'+
+			      '<div id="bodyContent">'+
+			      '<h3>'+ elem.project.startDate+'</h3>'+
+			      '<h3>'+ elem.project.endDate+'</h3>'+
+			      '</div>'+
+			      '</div>';
+
+		  		var infowindow = new google.maps.InfoWindow();
+                  var marker = new google.maps.Marker({
+                    position: cords,
+                    map: map,
+                    title: elem.project.name,
+                    animation: google.maps.Animation.DROP,
+                  });
+                  markers.push(marker);
+                  google.maps.event.addListener(marker, 'click', (function(marker, content, infoWindow) {
+			          return function() {
+			            infoWindow.setContent(content);
+			            infoWindow.open(map, marker);
+			          };
+			        })(marker, contentString, infowindow));
+                }
+              }
+              , error => {
+                console.log(error);
+					alert("No Construction sites in the area");
+                });
+          }catch(error){
+            console.log("got error"+error);
+          }
+        }
+
+
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1HAuPcyk9K6-Z5dYvdw9xlt8DfH_LGsU&callback=initMap&libraries=places&v=weekly"
+    async defer></script>
+    <div class="modal fade" id="modalLoginForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Sign in</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <i class="fas fa-envelope prefix grey-text"></i>
+          <input type="email" id="defaultForm-email" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="defaultForm-email">Your email</label>
+        </div>
+
+        <div class="md-form mb-4">
+          <i class="fas fa-lock prefix grey-text"></i>
+          <input type="password" id="defaultForm-pass" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="defaultForm-pass">Your password</label>
+        </div>
+
+      </div>
+      <div class="modal-footer d-flex justify-content-center">
+        <button id="loginButton" class="btn btn-default" onclick="login()">Login</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="modalRegisterForm" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">Sign up</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-3">
+          <i class="fas fa-user prefix grey-text"></i>
+          <input type="text" id="orangeForm-firstName" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-name">First name</label>
+        </div>
+        <div class="md-form mb-3">
+          <i class="fas fa-user prefix grey-text"></i>
+          <input type="text" id="orangeForm-lastName" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-name">Last name</label>
+        </div>
+        <div class="md-form mb-4">
+          <i class="fas fa-envelope prefix grey-text"></i>
+          <input type="email" id="orangeForm-email" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-email">Your email</label>
+        </div>
+
+        <div class="md-form mb-4">
+          <i class="fas fa-lock prefix grey-text"></i>
+          <input type="password" id="orangeForm-pass" class="form-control validate">
+          <label data-error="wrong" data-success="right" for="orangeForm-pass">Your password</label>
+        </div>
+
+      </div>
+      <div class="modal-footer d-flex justify-content-center">
+        <button id="signUpButton" class="btn btn-deep-orange" onclick="signUp()">Sign up</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="modalApproveUsers" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="classInfo" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+          ×
+        </button>
+        <h4 class="modal-title" id="classModalLabel">
+              Users Approval
+            </h4>
+      </div>
+      <div class="modal-body">
+        <table id="classTable" class="table table-bordered">
+          <thead>
+          	<tr>
+              <td>UserId</td>
+              <td>Email</td>
+              <td>First Name</td>
+              <td>Last Name</td>
+              <td>Approve</td>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+	function addConsite(){
+		const input = document.getElementById("pac-input");
+		streetName = input.value;
+		placeLocationLat = parseFloat(localStorage.getItem("inputLocationLat"));
+		placeLocationLng = parseFloat(localStorage.getItem("inputLocationLng"));
+		startDateInput = document.getElementById("startDate");
+		endDateInput = document.getElementById("endDate");
+		startDate = startDateInput.value;
+		endDate = endDateInput.value;
+		fetch("https://consite-locator-a441e.firebaseio.com/locations.json")
+              .then(response => {
+                if(!response.ok)
+                  throw new Error("Not 2xx response");
+                if(response != null)
+                  return response.json();
+                })
+              .then(locations => 
+              {
+                const locationsCount = locations.length;
+                var x = new XMLHttpRequest();
+				x.open("PATCH", "https://consite-locator-a441e.firebaseio.com/locations.json");
+				newElem = {"location": {"lat": placeLocationLat, "lng": placeLocationLng}, "project": {"name": streetName, "startDate": startDate, "endDate": endDate}}
+				body = '{"'+ locationsCount  + '":' + JSON.stringify(newElem) + '}';
+				x.send(body);
+				alert("אתר בנייה נוסף בהצלחה");
+        		input.value = "";	
+				startDateInput.value = ""
+				endDateInput.value = ""
+              }
+              , error => {
+                console.log(error);
+					alert("can't find locations");
+                });
+		
+      }
+	function toggaleTopActions() {
+			var login = document.getElementById('login');
+	   	var register = document.getElementById('register');
+	   	var disconnect = document.getElementById('disconnect');
+	   	var modalAddLocation = document.getElementById('modalAddLocation');
+	   	var approveUsers = document.getElementById('approveUsers');
+	   	var cityInput = document.getElementById('selectCityInput');
+   		var userLoggedIn = localStorage.getItem("isLoggedIn");
+   		var isAdmin = localStorage.getItem('isAdmin') === "true";
+   		var isEditor = localStorage.getItem('isEditor') === "true";
+	   if (userLoggedIn === "true") {
+	   	login.style.display = "none";
+	   	register.style.display = "none";
+	   	disconnect.style.display = "block";
+	   	if (isAdmin) {
+		   	modalAddLocation.style.display = "block";
+		   	approveUsers.style.display = "block";
+	   	} else if ( isEditor ) {
+	   		modalAddLocation.style.display = "block";
+	   	}
+	   } else {
+	   	login.style.display = "block";
+	   	register.style.display = "block";
+	   	disconnect.style.display = "none";
+	   	modalAddLocation.style.display = "none";
+	   	approveUsers.style.display = "none";   	
+	   }
+	}
+	function login() {
+			try{
+            fetch("https://consite-locator-a441e.firebaseio.com/users.json")
+              .then(response => {
+                if(!response.ok)
+                  throw new Error("Not 2xx response");
+                if(response != null)
+                  return response.json();
+                })
+              .then(users => 
+              {
+	   			var email = document.getElementById('defaultForm-email');
+	   			var password = document.getElementById('defaultForm-pass');
+	   			for (var i = 0; i < users.length; i++) {
+	   				user = users[i];
+	   				if (user.email === email.value && user.password === password.value){
+						localStorage.setItem("isLoggedIn", true);
+	            		localStorage.setItem("isAdmin", user.isAdmin);
+	            		localStorage.setItem("isEditor", user.isEditor);
+	            		$('#modalLoginForm').modal('hide');
+	            		toggaleTopActions();
+	            		return;
+	   				}
+	   			}
+   				alert("email or password incorrecct");
+        		localStorage.setItem("isLoggedIn", false);                	
+              }
+              , error => {
+                console.log(error);
+					alert("Not registered");
+                });
+          }catch(error){
+            console.log("got error"+error);
+          }
+		}
+	function signUp() {
+			try{
+				var usersCount = 0;
+				fetch("https://consite-locator-a441e.firebaseio.com/users.json")
+              .then(response => {
+                if(!response.ok)
+                  throw new Error("Not 2xx response");
+                if(response != null)
+                  return response.json();
+                })
+              .then(users => 
+              {
+                usersCount = users.length;
+                var firstName = document.getElementById('orangeForm-firstName');
+                var lastName = document.getElementById('orangeForm-lastName');
+                var email = document.getElementById('orangeForm-email');
+	   			var password = document.getElementById('orangeForm-pass');
+                var x = new XMLHttpRequest();
+				x.open("PATCH", "https://consite-locator-a441e.firebaseio.com/users.json");
+				body = '{"' + usersCount.toString() + '":{ "email" : "' + email.value + '", "firstName" : "' + firstName.value + '", "isAdmin" : "false", "isEditor" : "false", "lastName" : "' + lastName.value + '", "password" : "' + password.value + '"}}';
+				x.send(body);
+				localStorage.setItem("isLoggedIn", true);
+        		localStorage.setItem("isAdmin", false);
+        		localStorage.setItem("isEditor", false);
+            		$('#modalRegisterForm').modal('hide');
+            		toggaleTopActions();
+              }
+              , error => {
+                console.log(error);
+					alert("Not registered");
+                });
+          }catch(error){
+            console.log("got error"+error);
+          }
+		}
+		function disconnect() {
+    		localStorage.setItem("isLoggedIn", false);
+    		localStorage.setItem("isAdmin", false);
+    		localStorage.setItem("isEditor", false);
+    		toggaleTopActions();
+		}
+		$("#modalApproveUsers").on('shown.bs.modal', function(){
+			try{
+            fetch("https://consite-locator-a441e.firebaseio.com/users.json")
+              .then(response => {
+                if(!response.ok)
+                  throw new Error("Not 2xx response");
+                if(response != null)
+                  return response.json();
+                })
+              .then(users => 
+              {
+              	tbody = document.getElementById("tableBody");
+              	tbody.innerHTML = "";
+	   			for (var i = 0; i < users.length; i++) {
+	   				const index = i;
+	   				var tr = document.createElement('tr');
+	   				var userId = document.createElement('td');
+			        userId.appendChild(document.createTextNode(i))
+			        var email = document.createElement('td');
+			        email.appendChild(document.createTextNode(users[i].email))
+			        var firstName = document.createElement('td');
+			        firstName.appendChild(document.createTextNode(users[i].firstName))
+			        var lastName = document.createElement('td');
+			        lastName.appendChild(document.createTextNode(users[i].lastName))
+			        var approve = document.createElement('td');
+			        var approveButton = document.createElement('button');
+			        approveButton.onclick = function() {
+			        	var x = new XMLHttpRequest();
+						x.open("PATCH", "https://consite-locator-a441e.firebaseio.com/users/" + index + ".json");
+						body = '{"isEditor":"true"}';
+						x.send(body);
+            			$('#modalApproveUsers').modal('hide');
+			        }
+			        approve.appendChild(approveButton)
+	   				tr.appendChild(userId);
+	   				tr.appendChild(email);
+	   				tr.appendChild(firstName);
+	   				tr.appendChild(lastName);
+	   				if (users[i].isEditor === "false" || users[i].isEditor === false) {
+	   					tr.appendChild(approve);
+	   				}
+   				    tbody.appendChild(tr);
+
+	   			}
+              }
+              , error => {
+                console.log(error);
+					alert("Not registered");
+                });
+          }catch(error){
+            console.log("got error"+error);
+          }
+		});
+</script>
+  </body>
+</html>
